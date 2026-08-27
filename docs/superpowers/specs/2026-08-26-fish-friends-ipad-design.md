@@ -1,7 +1,7 @@
 # Fish Friends: iPad App Design
 
 Date: 2026-08-26
-Status: Approved pending Taylor's spec review
+Status: Approved 2026-08-27. Built without audio (see plans/2026-08-27-fish-friends-ipad-no-audio.md); voice batch deferred to Taylor.
 
 ## What this is
 
