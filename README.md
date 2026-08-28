@@ -12,15 +12,14 @@ audio through the mute switch.
   Evidence in `docs/verification/2026-08-27/`.
 - NOT done yet: the 108 recorded voice lines. Until then the game
   speaks with the built-in robot voice (per-line fallback, by design).
-- The ElevenLabs call path is written and dry-run tested but has not
-  hit the live API; expect one round of settings tuning at audition.
+- Voices are generated locally with Kokoro (free, offline, no API
+  key). First run downloads ~340MB of model files into tools/models/.
 
-## Finish the audio (three commands)
+## Finish the audio (two commands)
 
-    export ELEVENLABS_API_KEY=your-key
-    python3 tools/generate_voice.py audition
+    uv run tools/generate_voice.py audition
     # listen to tools/audition/, pick a voice, then:
-    python3 tools/generate_voice.py batch --voice Rachel
+    uv run tools/generate_voice.py batch --voice af_heart
 
 The batch writes all 108 MP3s into `web/assets/voice/`, post-processes
 them with ffmpeg (numbers tight, sentences padded 0.2s), and runs the
