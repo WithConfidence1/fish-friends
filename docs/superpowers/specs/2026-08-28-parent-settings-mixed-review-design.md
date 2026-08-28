@@ -66,10 +66,14 @@ localStorage, with props kept as defaults for canvas preview:
 - Precedence: localStorage overrides props; props override built-in
   defaults. Reads go through one `settings()` accessor; `level()`,
   `voiceOn()`, `freeDur()` switch to it.
-- `voice: false` silences **speech only** — both MP3 clips and the
-  speechSynthesis fallback (the existing `voiceOn()` gate in `say()`
-  already does exactly this). Blips, chords, and all other sound
-  effects are unaffected.
+- `voice: false` silences **speech only** — sound effects (blips,
+  chords) are unaffected.
+- **The speechSynthesis robot-voice fallback is removed entirely**
+  (Taylor's decision 2026-08-28): `say()` plays the line's MP3 clip
+  when the file exists and stays silent otherwise. All
+  speechSynthesis code (`pickVoice`, voice selection, cancel calls)
+  is deleted. VOICE.md's preamble and the README lose their
+  "falls back to the browser voice" language.
 - Level pin takes effect from the next round. While pinned, adaptive
   progression (`tap-count-progress`) is neither read for round
   selection nor written. Returning to `auto` resumes from the stored
