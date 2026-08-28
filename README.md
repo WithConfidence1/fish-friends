@@ -5,13 +5,15 @@ The game itself is the bundled HTML prototype in `web/`; the Swift
 shell in `app/` just gives it full screen, offline, wake lock, and
 audio through the mute switch.
 
-## Status (2026-08-27)
+## Status (2026-08-28)
 
 - Built and verified in the iPad Simulator: shell, icon, full game
   loop (count round, number bubbles, celebration, treasure, relaunch).
   Evidence in `docs/verification/2026-08-27/`.
-- NOT done yet: the 108 recorded voice lines. Until then the game
-  speaks with the built-in robot voice (per-line fallback, by design).
+- The 108 voice clips are generated with Kokoro (voice `af_bella`) and
+  committed. Remaining work: spot-check clips in `tools/review.html`
+  (regenerate rejects with `batch --voice af_bella --only slug1,slug2`)
+  and rebuild the app so the clips ship inside it.
 - Voices are generated locally with Kokoro (free, offline, no API
   key). First run downloads ~340MB of model files into tools/models/.
 
@@ -19,7 +21,7 @@ audio through the mute switch.
 
     uv run tools/generate_voice.py audition
     # listen to tools/audition/, pick a voice, then:
-    uv run tools/generate_voice.py batch --voice af_heart
+    uv run tools/generate_voice.py batch --voice af_bella
 
 The batch writes all 108 MP3s into `web/assets/voice/`, post-processes
 them with ffmpeg (numbers tight, sentences padded 0.2s), and runs the
