@@ -25,8 +25,8 @@ a{color:#1E7FB0}a:hover{color:#3FA9D0}
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:820},
-&quot;level&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;auto (adaptive)&quot;,&quot;options&quot;:[&quot;auto (adaptive)&quot;,&quot;1 · count to 5&quot;,&quot;2 · count to 10&quot;,&quot;3 · add within 6&quot;,&quot;4 · add within 10&quot;,&quot;5 · take away (subtraction)&quot;,&quot;6 · pearl groups (multiplication)&quot;,&quot;7 · share the treats (division)&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Round&quot;},
-&quot;pace&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;quick demo&quot;,&quot;options&quot;:[&quot;quick demo&quot;,&quot;natural&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Round&quot;},
+&quot;level&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;auto (adaptive)&quot;,&quot;options&quot;:[&quot;auto (adaptive)&quot;,&quot;1 · count to 5&quot;,&quot;2 · count to 10&quot;,&quot;3 · add within 6&quot;,&quot;4 · add within 10&quot;,&quot;5 · take away (subtraction)&quot;,&quot;6 · pearl groups (multiplication)&quot;,&quot;7 · share the treats (division)&quot;,&quot;8 · count to 20&quot;,&quot;9 · tap until (missing addend)&quot;,&quot;10 · make ten (number bonds)&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Round&quot;},
+&quot;pace&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;natural&quot;,&quot;options&quot;:[&quot;quick demo&quot;,&quot;natural&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Round&quot;},
 &quot;voice&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Sound&quot;}}">
 class Component extends DCLogic {
   renderVals() {
@@ -37,15 +37,44 @@ class Component extends DCLogic {
     };
   }
   componentDidMount() { this.boot(); }
-  componentWillUnmount() { this.dead = true; cancelAnimationFrame(this.raf); if (this.ro) this.ro.disconnect(); try { speechSynthesis.cancel(); } catch (e) {} }
+  componentWillUnmount() { this.dead = true; cancelAnimationFrame(this.raf); if (this.ro) this.ro.disconnect(); }
 
   progress() {
     if (!this._prog) { try { this._prog = JSON.parse(localStorage.getItem('tap-count-progress') || '{"lvl":1,"streak":0}'); } catch (e) { this._prog = { lvl: 1, streak: 0 }; } }
     return this._prog;
   }
-  level() { const m = String(this.props.level || 'auto').match(/^(\d)/); return m ? +m[1] : Math.max(1, Math.min(5, this.progress().lvl)); }
-  voiceOn() { return this.props.voice !== false; }
-  freeDur() { return String(this.props.pace || 'quick demo').startsWith('quick') ? 5 : 14; }
+  settings() {
+    if (!this._settings) {
+      let s = {};
+      try { s = JSON.parse(localStorage.getItem('tap-count-settings') || '{}'); } catch (e) {}
+      const propLevel = String(this.props.level || 'auto');
+      const propPace = String(this.props.pace || 'natural');
+      this._settings = {
+        level: s.level != null ? s.level : (propLevel.match(/^(\d+)/) ? +propLevel.match(/^(\d+)/)[1] : 'auto'),
+        pace: s.pace || (propPace.startsWith('quick') ? 'quick' : 'natural'),
+        voice: s.voice != null ? s.voice : this.props.voice !== false,
+      };
+    }
+    return this._settings;
+  }
+  saveSettings(patch) {
+    Object.assign(this.settings(), patch);
+    try { localStorage.setItem('tap-count-settings', JSON.stringify(this._settings)); } catch (e) {}
+    this.persist();
+  }
+  persist() {
+    try {
+      if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.persist) {
+        const g = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+        webkit.messageHandlers.persist.postMessage({
+          progress: g('tap-count-progress'), treasures: g('tap-count-treasures'),
+          settings: g('tap-count-settings'), backup: g('tap-count-backup') });
+      }
+    } catch (e) {}
+  }
+  level() { const l = this.settings().level; return l === 'auto' ? Math.max(1, Math.min(10, this.progress().lvl)) : l; }
+  voiceOn() { return this.settings().voice; }
+  freeDur() { return this.settings().pace === 'quick' ? 5 : 14; }
 
   async boot() {
     const names = ['fish-orange', 'fish-blue', 'fish-yellow', 'fish-pink', 'fish-purple', 'fish-green', 'turtle', 'jelly-blue', 'jelly-pink', 'starfish', 'starfish-pink', 'coral-pink', 'shell', 'chest', 'star-gold', 'heart', 'bubble-speech', 'crab', 'gem-purple', 'gem-blue', 'gem-pink', 'gem-teal', 'coin', 'pearl-orb', 'clam-pink', 'clam-purple', 'star-big', 'seahorse', 'puffer', 'ray', 'hermit', 'weed-a', 'weed-b', 'weed-d', 'coral-blue', 'bg-reef', 'bg-wreck', 'bg-cave'];
@@ -104,39 +133,16 @@ class Component extends DCLogic {
     o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + dur);
   }
   chord() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.blip(f, f * 1.01, 0.35, 0.1, 'triangle'), i * 120)); }
-  pickVoice() {
-    if (this._voice !== undefined) return this._voice;
-    try {
-      const vs = speechSynthesis.getVoices();
-      if (!vs.length) { speechSynthesis.onvoiceschanged = () => { this._voice = undefined; this.pickVoice(); }; return null; }
-      const pref = ['Samantha', 'Google US English', 'Zoe', 'Ava', 'Allison', 'Karen', 'Serena'];
-      this._voice = pref.map(p => vs.find(v => v.name.indexOf(p) >= 0)).find(v => v)
-        || vs.find(v => v.lang === 'en-US' && v.localService) || vs.find(v => v.lang && v.lang.indexOf('en') === 0) || null;
-    } catch (e) { this._voice = null; }
-    return this._voice;
-  }
-  tts(text, opts) {
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      const v = this.pickVoice(); if (v) u.voice = v;
-      u.lang = 'en-US'; u.rate = (opts && opts.rate) || 0.95; u.pitch = 1.05;
-      speechSynthesis.speak(u);
-    } catch (e) {}
-  }
   say(text, opts) {
     if (!this.voiceOn()) return;
-    // recorded clips first (see Voice Handoff.md), browser voice as fallback
+    // recorded clips only; a missing clip means the line is silent
     const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
-    this._noClip = this._noClip || {};
-    if (this._noClip[slug]) { this.tts(text, opts); return; }
     try {
       if (this.curClip) { try { this.curClip.pause(); } catch (e) {} }
-      try { speechSynthesis.cancel(); } catch (e) {}
       const a = new Audio('assets/voice/' + slug + '.mp3');
       this.curClip = a;
-      a.play().catch(() => { this._noClip[slug] = true; this.tts(text, opts); });
-    } catch (e) { this.tts(text, opts); }
+      a.play().catch(() => {});
+    } catch (e) {}
   }
 
   // ---------- state machine ----------
@@ -260,6 +266,7 @@ class Component extends DCLogic {
       if (pr.streak >= 2 && pr.lvl < 7) { pr.lvl++; pr.streak = 0; }
       if (pr.streak <= -2 && pr.lvl > 1) { pr.lvl--; pr.streak = 0; }
       try { localStorage.setItem('tap-count-progress', JSON.stringify(pr)); } catch (e) {}
+      this.persist();
     }
     if (this.roundType === 'add') this.say(this.words[nm - 1] + '! ' + this.words[this.A - 1] + ' and ' + this.words[this.B - 1] + ' makes ' + nm + '! Hooray!');
     else if (this.roundType === 'sub') this.say(this.words[nm - 1] + '! ' + this.words[this.A - 1] + ' take away ' + this.words[this.B - 1] + ' makes ' + nm + '! Hooray!');
@@ -383,6 +390,7 @@ class Component extends DCLogic {
           this.falling.done = true; this.burst(this.falling.x, this.falling.y - 0.03, 6);
           this.treasures.push({ img: this.falling.img, x: this.falling.x, y: this.falling.ty });
           try { localStorage.setItem('tap-count-treasures', JSON.stringify(this.treasures.slice(-40))); } catch (e) {}
+          this.persist();
           const nbg = this.bgIdxFor(this.treasures.length);
           if (nbg > this.bgIdx) { // 10/20/30 treasures: the whole tank transforms
             this.bgIdx = nbg; this.bgFade = 0;
