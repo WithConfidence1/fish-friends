@@ -10,7 +10,9 @@ from collections import namedtuple
 Row = namedtuple("Row", "text filename section tone")
 
 NUMBER_WORDS = ["one", "two", "three", "four", "five",
-                "six", "seven", "eight", "nine", "ten"]
+                "six", "seven", "eight", "nine", "ten",
+                "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+                "sixteen", "seventeen", "eighteen", "nineteen", "twenty"]
 
 
 def slug(text):
@@ -44,6 +46,9 @@ def game_lines():
       L3 add A,B 1..3, L4 add A,B 2..5
       L5 sub A 4..8, B 1..A-2
       L6 mul A,B 2..3, L7 div A,B 2..3 (N = A*B)
+      L8 count N 11..20
+      L9 until T 5..9, A 2..T-2
+      L10 bond A 3..8
     """
     W = NUMBER_WORDS
     lines = set(W)  # tap counting and skip counting
@@ -87,6 +92,20 @@ def game_lines():
         "Wow! Look! Our whole tank is changing!",
         "Wow! A new friend is joining our tank!",
     }
+
+    for n in range(11, 21):  # L8 count to 20
+        lines.add(f"{W[n - 1]}! {n} orange fish! Hooray!")
+    for t in range(5, 10):   # L9 tap until: T 5..9, A 2..T-2, B = T-A
+        lines.add(f"Can you make it {W[t - 1]}? Tap the new fish!")
+        for a in range(2, t - 1):
+            b = t - a
+            lines.add(f"{W[t - 1]}! {W[a - 1]} and {W[b - 1]} makes {t}! Hooray!")
+    for a in range(3, 9):    # L10 make ten: A 3..8, B = 10-A
+        b = 10 - a
+        lines.add(f"Look! {W[a - 1]} pearls.")
+        lines.add(f"ten! {W[a - 1]} and {W[b - 1]} makes 10! Hooray!")
+    lines.add("Tap the clams until we have ten!")
+
     return lines
 
 

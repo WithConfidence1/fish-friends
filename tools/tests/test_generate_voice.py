@@ -8,9 +8,9 @@ VOICE_MD = Path(__file__).resolve().parents[2] / "docs" / "VOICE.md"
 
 
 class TestPlanJobs(unittest.TestCase):
-    def test_plans_all_108_clips(self):
+    def test_plans_all_151_clips(self):
         jobs = plan_jobs(VOICE_MD)
-        self.assertEqual(len(jobs), 108)
+        self.assertEqual(len(jobs), 151)
 
     def test_number_words_are_tight(self):
         jobs = {j.filename: j for j in plan_jobs(VOICE_MD)}

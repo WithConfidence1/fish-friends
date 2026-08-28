@@ -2,7 +2,7 @@
 
 Every line the game can speak, with the exact audio filename it will look for.
 
-**How to use:** generate or record each line, save as MP3, and drop the files into `assets/voice/`. The game plays your clip whenever one exists and only falls back to the browser voice for missing files — so you can add clips gradually (start with the Numbers section; it covers 80% of what she hears).
+**How to use:** generate or record each line, save as MP3, and drop the files into `assets/voice/`. The game plays your clip whenever one exists, and a missing file means that line is simply silent — so you can add clips gradually (start with the Numbers section; it covers 80% of what she hears).
 
 **Voice direction:** one consistent, warm, unhurried adult voice. Small smile in everything. Never sped up — 4-year-olds process slowly. Keep ~0.2s of silence at the start and end of each clip.
 
@@ -22,6 +22,16 @@ Every line the game can speak, with the exact audio filename it will look for.
 | eight | `eight.mp3` |
 | nine | `nine.mp3` |
 | ten | `ten.mp3` |
+| eleven | `eleven.mp3` |
+| twelve | `twelve.mp3` |
+| thirteen | `thirteen.mp3` |
+| fourteen | `fourteen.mp3` |
+| fifteen | `fifteen.mp3` |
+| sixteen | `sixteen.mp3` |
+| seventeen | `seventeen.mp3` |
+| eighteen | `eighteen.mp3` |
+| nineteen | `nineteen.mp3` |
+| twenty | `twenty.mp3` |
 
 ## Starting a counting round
 *Warm invitation.*
@@ -197,6 +207,57 @@ Every line the game can speak, with the exact audio filename it will look for.
 | six treats shared with three fish... two each! Fair sharing, hooray! | `six-treats-shared-with-three-fish-two-each-fair-sharing-hooray.mp3` |
 | nine treats shared with three fish... three each! Fair sharing, hooray! | `nine-treats-shared-with-three-fish-three-each-fair-sharing-hooray.mp3` |
 
+## Count to 20 celebrations
+*Bright, proud.*
+
+| Say this | Save as |
+|---|---|
+| eleven! 11 orange fish! Hooray! | `eleven-11-orange-fish-hooray.mp3` |
+| twelve! 12 orange fish! Hooray! | `twelve-12-orange-fish-hooray.mp3` |
+| thirteen! 13 orange fish! Hooray! | `thirteen-13-orange-fish-hooray.mp3` |
+| fourteen! 14 orange fish! Hooray! | `fourteen-14-orange-fish-hooray.mp3` |
+| fifteen! 15 orange fish! Hooray! | `fifteen-15-orange-fish-hooray.mp3` |
+| sixteen! 16 orange fish! Hooray! | `sixteen-16-orange-fish-hooray.mp3` |
+| seventeen! 17 orange fish! Hooray! | `seventeen-17-orange-fish-hooray.mp3` |
+| eighteen! 18 orange fish! Hooray! | `eighteen-18-orange-fish-hooray.mp3` |
+| nineteen! 19 orange fish! Hooray! | `nineteen-19-orange-fish-hooray.mp3` |
+| twenty! 20 orange fish! Hooray! | `twenty-20-orange-fish-hooray.mp3` |
+
+## Tap until (missing addend)
+*Playful challenge.*
+
+| Say this | Save as |
+|---|---|
+| Can you make it five? Tap the new fish! | `can-you-make-it-five-tap-the-new-fish.mp3` |
+| Can you make it six? Tap the new fish! | `can-you-make-it-six-tap-the-new-fish.mp3` |
+| Can you make it seven? Tap the new fish! | `can-you-make-it-seven-tap-the-new-fish.mp3` |
+| Can you make it eight? Tap the new fish! | `can-you-make-it-eight-tap-the-new-fish.mp3` |
+| Can you make it nine? Tap the new fish! | `can-you-make-it-nine-tap-the-new-fish.mp3` |
+| eight! two and six makes 8! Hooray! | `eight-two-and-six-makes-8-hooray.mp3` |
+| eight! six and two makes 8! Hooray! | `eight-six-and-two-makes-8-hooray.mp3` |
+| nine! two and seven makes 9! Hooray! | `nine-two-and-seven-makes-9-hooray.mp3` |
+| nine! seven and two makes 9! Hooray! | `nine-seven-and-two-makes-9-hooray.mp3` |
+| nine! three and six makes 9! Hooray! | `nine-three-and-six-makes-9-hooray.mp3` |
+| nine! six and three makes 9! Hooray! | `nine-six-and-three-makes-9-hooray.mp3` |
+
+## Make ten (number bonds)
+*Wonder, gentle challenge.*
+
+| Say this | Save as |
+|---|---|
+| Look! three pearls. | `look-three-pearls.mp3` |
+| Look! four pearls. | `look-four-pearls.mp3` |
+| Look! five pearls. | `look-five-pearls.mp3` |
+| Look! six pearls. | `look-six-pearls.mp3` |
+| Look! seven pearls. | `look-seven-pearls.mp3` |
+| Look! eight pearls. | `look-eight-pearls.mp3` |
+| Tap the clams until we have ten! | `tap-the-clams-until-we-have-ten.mp3` |
+| ten! three and seven makes 10! Hooray! | `ten-three-and-seven-makes-10-hooray.mp3` |
+| ten! four and six makes 10! Hooray! | `ten-four-and-six-makes-10-hooray.mp3` |
+| ten! six and four makes 10! Hooray! | `ten-six-and-four-makes-10-hooray.mp3` |
+| ten! seven and three makes 10! Hooray! | `ten-seven-and-three-makes-10-hooray.mp3` |
+| ten! eight and two makes 10! Hooray! | `ten-eight-and-two-makes-10-hooray.mp3` |
+
 ## New friend unlock
 *Awed, delighted — a surprise gift moment.*
 
@@ -212,4 +273,4 @@ Every line the game can speak, with the exact audio filename it will look for.
 | Wow! Look! Our whole tank is changing! | `wow-look-our-whole-tank-is-changing.mp3` |
 
 ---
-**108 clips total.** Filenames are generated from the text (lowercase, punctuation stripped, spaces to dashes) — if you change any wording in the game, the filename changes with it, so keep this doc and the game in sync through me.
+**151 clips total.** Filenames are generated from the text (lowercase, punctuation stripped, spaces to dashes) — if you change any wording in the game, the filename changes with it, so keep this doc and the game in sync through me.

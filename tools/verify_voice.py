@@ -18,8 +18,8 @@ from tools.voicelib import slug, parse_voice_md, game_lines
 def check(voice_dir, voice_md_path, strict):
     problems, notes = [], []
     rows = parse_voice_md(voice_md_path)
-    if len(rows) != 108:
-        problems.append(f"VOICE.md parsed to {len(rows)} rows, expected 108")
+    if len(rows) != 151:
+        problems.append(f"VOICE.md parsed to {len(rows)} rows, expected 151")
 
     for row in rows:
         if slug(row.text) + ".mp3" != row.filename:

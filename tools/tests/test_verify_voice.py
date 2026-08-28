@@ -12,7 +12,7 @@ class TestCheck(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             code, report = check(Path(d), VOICE_MD, strict=False)
         self.assertEqual(code, 0)
-        self.assertIn("108 missing", report)
+        self.assertIn("151 missing", report)
 
     def test_strict_mode_fails_with_empty_voice_dir(self):
         with tempfile.TemporaryDirectory() as d:
