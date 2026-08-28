@@ -23,15 +23,20 @@ Bundle encoding, as found in `web/index.html`:
     `</script>`.
   * Asset/script src URLs are remapped from relative paths (e.g.
     `./support.js`) to opaque ids, but this remapping does NOT touch the
-    game `<script type="text/x-dc" data-dc-script ...>` block's body: the
-    body embedded in the bundle is, once JSON-unescaped, byte-for-byte
-    identical to the reference's script body. That equivalence is what
-    this module's round-trip test enforces, and what later tasks rely on
-    when they edit the reference and re-run this build step.
+    game `<script type="text/x-dc" data-dc-script ...>` block: the block
+    embedded in the bundle is, once JSON-unescaped, byte-for-byte identical
+    to the reference's block (open tag, including its `data-props`
+    attribute, AND body). That equivalence is what this module's
+    round-trip tests enforce, and what later tasks rely on when they edit
+    the reference (script body or `data-props`) and re-run this build
+    step.
 
-This module finds that script body in both files and splices the
-reference's (live, human-edited) body into the bundle's embedded copy,
-re-applying the same escaping the bundle already uses.
+This module finds that script block in both files and splices the
+reference's (live, human-edited) block — open tag and body together — into
+the bundle's embedded copy, re-applying the same escaping the bundle
+already uses. Syncing the open tag matters because `data-props` carries
+real default values (e.g. the `pace` default, the `level` enum's options)
+that the game reads at runtime when nothing else overrides them.
 """
 
 import argparse
@@ -57,6 +62,21 @@ _BUNDLE_OPEN_RE = re.compile(r'<script type=\\"text/x-dc\\"[^>]*data-dc-script[^
 _BUNDLE_CLOSE = "<\\u002Fscript>"
 
 
+def extract_open_tag(html_text: str) -> str:
+    """Return the reference's `<script type="text/x-dc" ... data-dc-script
+    ...>` open tag exactly as written, including its `&quot;`-escaped
+    `data-props` attribute. Exits with an error if the tag is missing or
+    ambiguous."""
+    matches = list(_REF_OPEN_RE.finditer(html_text))
+    if len(matches) != 1:
+        sys.exit(
+            "extract_open_tag: expected exactly one "
+            '<script type="text/x-dc" ... data-dc-script ...> open tag, '
+            f"found {len(matches)}"
+        )
+    return matches[0].group(0)
+
+
 def extract_script(html_text: str) -> str:
     """Return the game script body from a reference-style HTML document.
 
@@ -78,10 +98,36 @@ def extract_script(html_text: str) -> str:
     return html_text[body_start:close_idx]
 
 
-def _find_embedded_region(bundle_text: str) -> tuple[int, int]:
-    """Return (body_start, close_idx) bracketing the escaped script body
-    embedded in a bundle-style document. Exits with an error if the escaped
-    open marker is missing, ambiguous, or has no matching close marker."""
+def extract_block(html_text: str) -> str:
+    """Return the full game script block from a reference-style HTML
+    document: the open tag (with its `data-props` attribute) followed by
+    the body, i.e. everything from `<script type="text/x-dc" ...
+    data-dc-script ...>` through (but not including) the matching
+    `</script>`. Exits with an error if the open tag or its matching close
+    tag is missing or ambiguous."""
+    matches = list(_REF_OPEN_RE.finditer(html_text))
+    if len(matches) != 1:
+        sys.exit(
+            "extract_block: expected exactly one "
+            '<script type="text/x-dc" ... data-dc-script ...> open tag, '
+            f"found {len(matches)}"
+        )
+    open_start = matches[0].start()
+    body_start = matches[0].end()
+    close_idx = html_text.find(_REF_CLOSE, body_start)
+    if close_idx == -1:
+        sys.exit("extract_block: no matching </script> close tag found")
+    return html_text[open_start:close_idx]
+
+
+def _find_embedded_block(bundle_text: str) -> tuple[int, int, int]:
+    """Return (open_start, body_start, close_idx) bracketing the escaped
+    script block embedded in a bundle-style document: `open_start` is where
+    the escaped open tag begins, `body_start` is where its body begins
+    (right after the escaped open tag), and `close_idx` is where the
+    escaped `</script>` close marker begins. Exits with an error if the
+    escaped open marker is missing, ambiguous, or has no matching close
+    marker."""
     matches = list(_BUNDLE_OPEN_RE.finditer(bundle_text))
     if len(matches) != 1:
         sys.exit(
@@ -89,30 +135,46 @@ def _find_embedded_region(bundle_text: str) -> tuple[int, int]:
             '<script type="text/x-dc" ... data-dc-script ...> marker in the '
             f"bundle, found {len(matches)}"
         )
+    open_start = matches[0].start()
     body_start = matches[0].end()
     close_idx = bundle_text.find(_BUNDLE_CLOSE, body_start)
     if close_idx == -1:
         sys.exit("build_web: no matching escaped </script> close marker found in the bundle")
-    return body_start, close_idx
+    return open_start, body_start, close_idx
 
 
 def extract_embedded_body(bundle_text: str) -> str:
     """Return the still-JSON-escaped script body embedded in a bundle-style
     document (the raw text between the escaped open and close markers,
     before JSON-unescaping)."""
-    body_start, close_idx = _find_embedded_region(bundle_text)
+    _, body_start, close_idx = _find_embedded_block(bundle_text)
     return bundle_text[body_start:close_idx]
 
 
-def splice(bundle_text: str, new_body: str) -> str:
-    """Return `bundle_text` with its embedded game script body replaced by
-    `new_body`, re-escaped the way the bundle expects: JSON-escaped (minus
-    the surrounding quotes), with every `</` additionally escaped to
-    `<\\u002F`. Exits with an error if the bundle's embedded script markers
-    are missing or ambiguous."""
-    body_start, close_idx = _find_embedded_region(bundle_text)
-    escaped_body = json.dumps(new_body, ensure_ascii=False)[1:-1].replace("</", "<\\u002F")
-    return bundle_text[:body_start] + escaped_body + bundle_text[close_idx:]
+def extract_embedded_open_tag(bundle_text: str) -> str:
+    """Return the still-JSON-escaped open tag (with its `data-props`
+    attribute) embedded in a bundle-style document (the raw text between
+    the start of the escaped open marker and the start of its body, before
+    JSON-unescaping)."""
+    open_start, body_start, _ = _find_embedded_block(bundle_text)
+    return bundle_text[open_start:body_start]
+
+
+def _escape(text: str) -> str:
+    """JSON-escape `text` (minus the surrounding quotes, non-ASCII left as
+    literal UTF-8) and additionally protect embedded `</` sequences by
+    turning them into `<\\u002F`, matching the encoding the bundle already
+    uses for its embedded document."""
+    return json.dumps(text, ensure_ascii=False)[1:-1].replace("</", "<\\u002F")
+
+
+def splice(bundle_text: str, new_block: str) -> str:
+    """Return `bundle_text` with its embedded game script block (open tag
+    and body together) replaced by `new_block`, re-escaped the way the
+    bundle expects. Exits with an error if the bundle's embedded script
+    markers are missing or ambiguous."""
+    open_start, _, close_idx = _find_embedded_block(bundle_text)
+    return bundle_text[:open_start] + _escape(new_block) + bundle_text[close_idx:]
 
 
 def main(argv=None) -> int:
@@ -124,9 +186,9 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
-    ref_body = extract_script(REFERENCE.read_text(encoding="utf-8"))
+    ref_block = extract_block(REFERENCE.read_text(encoding="utf-8"))
     bundle_text = BUNDLE.read_text(encoding="utf-8")
-    built = splice(bundle_text, ref_body)
+    built = splice(bundle_text, ref_block)
 
     if args.check:
         if built == bundle_text:
