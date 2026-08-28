@@ -28,7 +28,7 @@ def check(voice_dir, voice_md_path, strict):
     voice_slugs = {r.filename[:-4] for r in rows}
     game_slugs = {slug(t) for t in game_lines()}
     for s in sorted(game_slugs - voice_slugs):
-        problems.append(f"game line has no VOICE.md row (silent robot fallback): {s}")
+        problems.append(f"game line has no VOICE.md row (that line will be silent): {s}")
     extras = sorted(voice_slugs - game_slugs)
     if extras:
         notes.append(f"{len(extras)} VOICE.md rows unreachable by the game (harmless): "

@@ -37,7 +37,7 @@ class Component extends DCLogic {
     };
   }
   componentDidMount() { this.boot(); }
-  componentWillUnmount() { this.dead = true; cancelAnimationFrame(this.raf); if (this.ro) this.ro.disconnect(); }
+  componentWillUnmount() { this.dead = true; cancelAnimationFrame(this.raf); if (this.ro) this.ro.disconnect(); clearTimeout(this._gateHoldTimer); clearTimeout(this._clearArmTimer); }
 
   progress() {
     if (!this._prog) { try { this._prog = JSON.parse(localStorage.getItem('tap-count-progress') || '{"lvl":1,"streak":0}'); } catch (e) { this._prog = { lvl: 1, streak: 0 }; } }
@@ -157,7 +157,7 @@ class Component extends DCLogic {
 
   refreshProgressLine() {
     if (!this._progLine) return;
-    this._progLine.textContent = 'Progress: level ' + this.progress().lvl + ' · ' + this.treasures.length + ' treasures collected';
+    this._progLine.textContent = 'Progress: level ' + this.level() + ' · ' + this.treasures.length + ' treasures collected';
   }
 
   updateClearBtn() {
@@ -270,7 +270,7 @@ class Component extends DCLogic {
     o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + dur);
   }
   chord() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.blip(f, f * 1.01, 0.35, 0.1, 'triangle'), i * 120)); }
-  say(text, opts) {
+  say(text) {
     if (!this.voiceOn()) return;
     // recorded clips only; a missing clip means the line is silent
     const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
@@ -484,14 +484,17 @@ class Component extends DCLogic {
   // ---------- interaction ----------
   gateDown(e, x, y) {
     if (!(x < 0.15 && y < 0.15)) return;
-    const now = performance.now();
-    this._gateTaps = (this._gateTaps || []).filter(tt => now - tt < 1500);
-    this._gateTaps.push(now);
-    if (this._gateTaps.length >= 3) {
-      this._gateTaps = [];
-      clearTimeout(this._gateHoldTimer); this._gateHoldTimer = null;
-      this.openSettings();
-      return;
+    const isTouch = e.pointerType === 'touch';
+    if (!isTouch) { // desktop/mouse only: 3 quick corner clicks; touch relies solely on the 2s hold below
+      const now = performance.now();
+      this._gateTaps = (this._gateTaps || []).filter(tt => now - tt < 1500);
+      this._gateTaps.push(now);
+      if (this._gateTaps.length >= 3) {
+        this._gateTaps = [];
+        clearTimeout(this._gateHoldTimer); this._gateHoldTimer = null;
+        this.openSettings();
+        return;
+      }
     }
     this._gateHoldId = e.pointerId;
     clearTimeout(this._gateHoldTimer);
@@ -555,7 +558,7 @@ class Component extends DCLogic {
         this.bubblesAt(best.x, best.y - 0.04, 4);
         this.burst(best.x, best.y, 3);
         this.blip(440 + this.counted * 80, 660 + this.counted * 80, 0.18, 0.14, 'triangle');
-        this.say(this.words[best.num - 1], { rate: 0.9 });
+        this.say(this.words[best.num - 1]);
         if (this.counted >= (runTotal ? this.B : this.roundN)) setTimeout(() => this.finishRound(), 800);
         return;
       }
@@ -783,7 +786,7 @@ class Component extends DCLogic {
       this.drawImgC(ctx, im.turtle, tu.x * W, (tu.y + Math.sin(tu.bob * 1.6) * 0.012) * H, tw * (1 + Math.sin(tu.bob * 3.2) * (paddling ? 0.02 : 0.008)), tu.dir > 0, Math.sin(tu.bob * 1.6 + 1) * 0.07);
     }
     // target fish on top
-    if ((dimOthers || this.phase === 'celebrate') && !fishless) for (const f of this.fish) if (f.color === 'orange') this.drawFish(ctx, f, fsc, f.mode === 'wait' ? 0.45 : 1, f.mode === 'gather' || f.mode === 'pregather');
+    if ((dimOthers || this.phase === 'celebrate') && !fishless) for (const f of this.fish) if (f.color === 'orange') this.drawFish(ctx, f, fsc, f.mode === 'wait' ? 0.45 : 1, f.mode === 'gather' || f.mode === 'pregather' || f.mode === 'wait');
     this.drawMulDiv(ctx, sandY, fsc);
     if ((this.phase === 'invite' || this.phase === 'count') && this.roundType !== 'div') this.drawPrompt(ctx, fsc); // prompt strip on top, near the surface
     // assist ring

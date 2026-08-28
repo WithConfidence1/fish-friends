@@ -86,9 +86,15 @@ class TestBuildWeb(unittest.TestCase):
         once = splice(bundle, ref_block)
         self.assertEqual(once, splice(once, ref_block))
 
-    def test_splice_rejects_ambiguous_markers(self):
+    def test_splice_rejects_zero_markers(self):
         with self.assertRaises(SystemExit):
             splice("no markers here", "x = 1")
+
+    def test_splice_rejects_multiple_markers(self):
+        one_tag = '<script type=\\"text/x-dc\\" data-dc-script\\">'
+        two = one_tag + "body one<\\u002Fscript>" + one_tag + "body two<\\u002Fscript>"
+        with self.assertRaises(SystemExit):
+            splice(two, "x = 1")
 
 
 if __name__ == "__main__":

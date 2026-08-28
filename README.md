@@ -19,20 +19,32 @@ audio through the mute switch.
   A missing clip is silent, never a robot/fallback voice (see
   Grown-up settings below).
 
-## Finish the audio (two commands)
+## Audio
+
+All 151 clips are recorded (voice `af_bella`) and committed under
+`web/assets/voice/`. **Never regenerate the full batch** — that would
+replace already-accepted audio; existing clips are not to be
+re-rendered wholesale.
+
+If a specific clip gets rejected on review (or a game line changes),
+redo just that one:
+
+    uv run tools/generate_voice.py batch --voice af_bella --only slug1,slug2
+
+This writes only the named MP3s into `web/assets/voice/`,
+post-processes them with ffmpeg (numbers tight, sentences padded
+0.2s), and runs the strict verifier. Review the result in
+`tools/review.html` (open it in a browser). Rebuild the app afterward
+so the clip ships inside it.
+
+If someone later wants to switch the whole game to a different voice,
+the audition step still applies — listen first, then batch-generate
+for that voice, understanding that it replaces the shipped af_bella
+set:
 
     uv run tools/generate_voice.py audition
     # listen to tools/audition/, pick a voice, then:
-    uv run tools/generate_voice.py batch --voice af_bella
-
-The batch writes all 151 MP3s into `web/assets/voice/`, post-processes
-them with ffmpeg (numbers tight, sentences padded 0.2s), and runs the
-strict verifier. Review every clip in `tools/review.html` (open it in
-a browser); tick rejects and regenerate just those with
-`batch --voice NAME --only slug1,slug2`. Rebuild the app afterward so
-the clips ship inside it. To re-record a line yourself later,
-overwrite its MP3 in `web/assets/voice/` and rebuild. Nothing else
-changes.
+    uv run tools/generate_voice.py batch --voice NAME
 
 ## Grown-up settings
 
