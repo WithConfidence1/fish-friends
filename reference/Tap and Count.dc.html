@@ -76,6 +76,138 @@ class Component extends DCLogic {
   voiceOn() { return this.settings().voice; }
   freeDur() { return this.settings().pace === 'quick' ? 5 : 14; }
 
+  // ---------- grown-up settings overlay ----------
+  openSettings() {
+    if (this.settingsOpen) return;
+    this.settingsOpen = true;
+    this._gateTaps = [];
+    clearTimeout(this._gateHoldTimer); this._gateHoldTimer = null;
+    this._clearState = 'idle';
+    clearTimeout(this._clearArmTimer); this._clearArmTimer = null;
+    const s = this.settings();
+    const scrim = document.createElement('div');
+    scrim.style.cssText = 'position:absolute;inset:0;background:rgba(8,40,56,0.55);display:flex;align-items:center;justify-content:center;z-index:1000;';
+    const card = document.createElement('div');
+    card.style.cssText = "background:#F7FBFD;border-radius:22px;padding:28px 30px;width:min(420px,88vw);box-sizing:border-box;font-family:'Baloo 2',sans-serif;color:#14333D;";
+    scrim.appendChild(card);
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;';
+    const title = document.createElement('div');
+    title.textContent = 'Grown-up settings'; title.style.cssText = 'font-size:22px;font-weight:800;';
+    const doneBtn = document.createElement('button');
+    doneBtn.textContent = 'Done';
+    doneBtn.style.cssText = "font-family:'Baloo 2',sans-serif;font-weight:800;font-size:14px;color:#14333D;background:#E2EEF3;border:none;border-radius:999px;padding:9px 20px;cursor:pointer;";
+    doneBtn.addEventListener('click', () => this.closeSettings());
+    header.appendChild(title); header.appendChild(doneBtn); card.appendChild(header);
+
+    const mkLabel = txt => { const l = document.createElement('div'); l.textContent = txt; l.style.cssText = 'font-size:13px;font-weight:800;color:#5A7683;margin-bottom:6px;'; return l; };
+    const selCss = "width:100%;font-family:'Baloo 2',sans-serif;font-size:15px;color:#14333D;background:#EAF3F6;border:none;border-radius:10px;padding:10px 12px;margin-bottom:16px;box-sizing:border-box;";
+
+    card.appendChild(mkLabel('Level'));
+    const levelSel = document.createElement('select'); levelSel.style.cssText = selCss;
+    const levels = ['auto (adaptive)', '1 · count to 5', '2 · count to 10', '3 · add within 6', '4 · add within 10', '5 · take away (subtraction)', '6 · pearl groups (multiplication)', '7 · share the treats (division)', '8 · count to 20', '9 · tap until (missing addend)', '10 · make ten (number bonds)'];
+    levels.forEach((label, i) => { const opt = document.createElement('option'); opt.value = i === 0 ? 'auto' : String(i); opt.textContent = label; levelSel.appendChild(opt); });
+    levelSel.value = s.level === 'auto' ? 'auto' : String(s.level);
+    levelSel.addEventListener('change', () => { const v = levelSel.value; this.saveSettings({ level: v === 'auto' ? 'auto' : +v }); });
+    card.appendChild(levelSel);
+
+    card.appendChild(mkLabel('Pacing'));
+    const paceSel = document.createElement('select'); paceSel.style.cssText = selCss;
+    [['natural', 'Natural (rounds start after 14s)'], ['quick', 'Quick (5s)']].forEach(([v, label]) => { const opt = document.createElement('option'); opt.value = v; opt.textContent = label; paceSel.appendChild(opt); });
+    paceSel.value = s.pace;
+    paceSel.addEventListener('change', () => this.saveSettings({ pace: paceSel.value }));
+    card.appendChild(paceSel);
+
+    const voiceRow = document.createElement('label');
+    voiceRow.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:15px;margin-bottom:16px;cursor:pointer;';
+    const voiceCk = document.createElement('input');
+    voiceCk.type = 'checkbox'; voiceCk.checked = !!s.voice; voiceCk.style.cssText = 'accent-color:#F4711F;width:18px;height:18px;';
+    voiceCk.addEventListener('change', () => this.saveSettings({ voice: voiceCk.checked }));
+    const voiceTxt = document.createElement('span'); voiceTxt.textContent = 'Voice';
+    voiceRow.appendChild(voiceCk); voiceRow.appendChild(voiceTxt); card.appendChild(voiceRow);
+
+    const hr = document.createElement('hr'); hr.style.cssText = 'border:none;border-top:1px solid rgba(20,51,61,0.15);margin:4px 0 14px;'; card.appendChild(hr);
+
+    const progLine = document.createElement('div');
+    progLine.style.cssText = 'font-size:13px;color:#5A7683;margin-bottom:16px;';
+    card.appendChild(progLine);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.style.cssText = "width:100%;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:15px;color:#FFFFFF;border:none;border-radius:12px;padding:13px;cursor:pointer;";
+    clearBtn.addEventListener('click', () => this.onClearClick());
+    card.appendChild(clearBtn);
+
+    this._settingsEl = scrim; this._levelSel = levelSel; this._paceSel = paceSel; this._voiceCk = voiceCk;
+    this._progLine = progLine; this._clearBtn = clearBtn;
+    this.refreshProgressLine(); this.updateClearBtn();
+    this.wrap.appendChild(scrim);
+  }
+
+  closeSettings() {
+    if (!this.settingsOpen) return;
+    this.settingsOpen = false;
+    clearTimeout(this._clearArmTimer); this._clearArmTimer = null;
+    this._clearState = 'idle';
+    if (this._settingsEl && this._settingsEl.parentNode) this._settingsEl.parentNode.removeChild(this._settingsEl);
+    this._settingsEl = null;
+    this._gateTaps = [];
+    this.gateCancel();
+  }
+
+  refreshProgressLine() {
+    if (!this._progLine) return;
+    this._progLine.textContent = 'Progress: level ' + this.progress().lvl + ' · ' + this.treasures.length + ' treasures collected';
+  }
+
+  updateClearBtn() {
+    if (!this._clearBtn) return;
+    const st = { idle: ['#7A97A5', 'Clear treasures & progress'], armed: ['#D6452B', 'Really clear everything? Tap again'], undo: ['#3E8E5A', 'Undo — bring it all back'] }[this._clearState];
+    this._clearBtn.style.background = st[0]; this._clearBtn.textContent = st[1];
+  }
+
+  onClearClick() {
+    if (this._clearState === 'idle') {
+      this._clearState = 'armed'; this.updateClearBtn();
+      clearTimeout(this._clearArmTimer);
+      this._clearArmTimer = setTimeout(() => { this._clearState = 'idle'; this.updateClearBtn(); }, 3000);
+    } else if (this._clearState === 'armed') {
+      clearTimeout(this._clearArmTimer); this._clearArmTimer = null;
+      this.performClear();
+      this._clearState = 'undo'; this.updateClearBtn(); this.refreshProgressLine();
+    } else {
+      this.performUndo();
+      this._clearState = 'idle'; this.updateClearBtn(); this.refreshProgressLine();
+    }
+  }
+
+  performClear() {
+    try { localStorage.setItem('tap-count-backup', JSON.stringify({ progress: this.progress(), treasures: this.treasures })); } catch (e) {}
+    try { localStorage.removeItem('tap-count-progress'); } catch (e) {}
+    try { localStorage.removeItem('tap-count-treasures'); } catch (e) {}
+    this._prog = { lvl: 1, streak: 0 };
+    this.treasures = [];
+    this.petCount = 0;
+    this.fish = this.fish.filter(f => f.color !== 'pet');
+    this.bgIdx = 0;
+    this.persist();
+  }
+
+  performUndo() {
+    let backup = null;
+    try { backup = JSON.parse(localStorage.getItem('tap-count-backup') || 'null'); } catch (e) {}
+    if (!backup) return;
+    try { localStorage.setItem('tap-count-progress', JSON.stringify(backup.progress || { lvl: 1, streak: 0 })); } catch (e) {}
+    try { localStorage.setItem('tap-count-treasures', JSON.stringify(backup.treasures || [])); } catch (e) {}
+    this._prog = backup.progress || { lvl: 1, streak: 0 };
+    this.treasures = (backup.treasures || []).slice(0, 40).map((t, i) => Object.assign({ img: t.img }, this.tSlot(i)));
+    this.fish = this.fish.filter(f => f.color !== 'pet');
+    this.petCount = Math.min(this.petDefs.length, Math.floor(this.treasures.length / 5));
+    for (let i = 0; i < this.petCount; i++) this.addPet(i, false);
+    this.bgIdx = this.bgIdxFor(this.treasures.length); this.bgFade = 1;
+    this.persist();
+  }
+
   async boot() {
     const names = ['fish-orange', 'fish-blue', 'fish-yellow', 'fish-pink', 'fish-purple', 'fish-green', 'turtle', 'jelly-blue', 'jelly-pink', 'starfish', 'starfish-pink', 'coral-pink', 'shell', 'chest', 'star-gold', 'heart', 'bubble-speech', 'crab', 'gem-purple', 'gem-blue', 'gem-pink', 'gem-teal', 'coin', 'pearl-orb', 'clam-pink', 'clam-purple', 'star-big', 'seahorse', 'puffer', 'ray', 'hermit', 'weed-a', 'weed-b', 'weed-d', 'coral-blue', 'bg-reef', 'bg-wreck', 'bg-cave'];
     this.im = {};
@@ -84,6 +216,11 @@ class Component extends DCLogic {
     const fit = () => { if (!this.cv || !this.wrap) return; const dpr = Math.min(2, window.devicePixelRatio || 1); const r = this.wrap.getBoundingClientRect(); this.W = r.width; this.H = r.height; this.dpr = dpr; this.cv.width = Math.round(r.width * dpr); this.cv.height = Math.round(r.height * dpr); };
     this.ro = new ResizeObserver(fit); this.ro.observe(this.wrap); fit();
     try { this.lock = await navigator.wakeLock.request('screen'); } catch (e) {}
+
+    this.settingsOpen = false; this._clearState = 'idle'; this._gateTaps = [];
+    this.wrap.addEventListener('pointerup', e => this.gateCancel(e));
+    this.wrap.addEventListener('pointercancel', e => this.gateCancel(e));
+    this.wrap.addEventListener('pointermove', e => this.gateMove(e));
 
     this.treasures = []; try { this.treasures = JSON.parse(localStorage.getItem('tap-count-treasures') || '[]').slice(0, 40); } catch (e) {}
     this.treasures = this.treasures.map((t, i) => Object.assign({ img: t.img }, this.tSlot(i)));
@@ -296,11 +433,38 @@ class Component extends DCLogic {
   bubblesAt(x, y, n) { for (let i = 0; i < n; i++) this.parts.push({ img: null, x: x + (Math.random() - 0.5) * 0.03, y, vx: (Math.random() - 0.5) * 0.02, vy: -0.1 - Math.random() * 0.08, rot: 0, vr: 0, life: 1.2, sz: 8 + Math.random() * 10, bub: true }); }
 
   // ---------- interaction ----------
+  gateDown(e, x, y) {
+    if (!(x < 0.15 && y < 0.15)) return;
+    const now = performance.now();
+    this._gateTaps = (this._gateTaps || []).filter(tt => now - tt < 1500);
+    this._gateTaps.push(now);
+    if (this._gateTaps.length >= 3) {
+      this._gateTaps = [];
+      clearTimeout(this._gateHoldTimer); this._gateHoldTimer = null;
+      this.openSettings();
+      return;
+    }
+    this._gateHoldId = e.pointerId;
+    clearTimeout(this._gateHoldTimer);
+    this._gateHoldTimer = setTimeout(() => { this._gateHoldTimer = null; this.openSettings(); }, 2000);
+  }
+  gateCancel(e) {
+    if (this._gateHoldTimer && (!e || e.pointerId === this._gateHoldId)) { clearTimeout(this._gateHoldTimer); this._gateHoldTimer = null; }
+  }
+  gateMove(e) {
+    if (!this._gateHoldTimer || e.pointerId !== this._gateHoldId || !this.W) return;
+    const r = this.wrap.getBoundingClientRect();
+    const x = (e.clientX - r.left) / this.W, y = (e.clientY - r.top) / this.H;
+    if (!(x < 0.15 && y < 0.15)) this.gateCancel(e);
+  }
+
   tap(e) {
     if (!this.W) return;
+    if (this.settingsOpen) return;
     const r = this.wrap.getBoundingClientRect();
     const x = (e.clientX - r.left) / this.W, y = (e.clientY - r.top) / this.H;
     const px = e.clientX - r.left, py = e.clientY - r.top;
+    this.gateDown(e, x, y);
     if (this._ac && this._ac.state === 'suspended') this._ac.resume();
     const f = this.fishScale();
     // turtle tap starts a round early
@@ -365,6 +529,7 @@ class Component extends DCLogic {
     this.bgFade = Math.min(1, (this.bgFade == null ? 1 : this.bgFade) + dt * 0.35);
     const sandU = 0.85;
 
+    if (this.phase === 'free' && this.settingsOpen) this.pt = 0;
     if (this.phase === 'free' && this.pt > this.freeDur()) this.startRound();
     if (this.phase === 'invite' && this.pt > ({ add: 5.6, sub: 7.4, mul: 5.8, div: 6.2 }[this.roundType] || 2.6)) { this.setPhase('count'); this.lastTapT = this.clock; }
     if (this.phase === 'count') {
