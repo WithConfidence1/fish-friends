@@ -22,7 +22,13 @@ class TestPlanJobs(unittest.TestCase):
 
     def test_every_job_has_voice_settings(self):
         for j in plan_jobs(VOICE_MD):
-            self.assertIn("stability", j.settings)
+            self.assertIn("speed", j.settings)
+
+    def test_numbers_are_full_speed_sentences_unhurried(self):
+        jobs = {j.filename: j for j in plan_jobs(VOICE_MD)}
+        self.assertEqual(jobs["one.mp3"].settings["speed"], 1.0)
+        self.assertEqual(
+            jobs["can-you-count-the-orange-fish.mp3"].settings["speed"], 0.95)
 
     def test_section_settings_are_a_subset_of_real_sections(self):
         from tools.voicelib import parse_voice_md

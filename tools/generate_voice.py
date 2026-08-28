@@ -36,12 +36,11 @@ AUDITION_LINES = ["three",
                   "Can you count the orange fish?",
                   "Wow! A new friend is joining our tank!"]
 
-DEFAULT_SETTINGS = {"stability": 0.5, "similarity_boost": 0.75,
-                    "style": 0.3, "use_speaker_boost": True}
+DEFAULT_SETTINGS = {"speed": 0.95}  # VOICE.md: never sped up
 # Per-section overrides, keyed by exact VOICE.md section heading.
-# Tune these at audition time; tone directions live in VOICE.md.
+# Numbers play rapid-fire as she taps, so keep them at full speed.
 SECTION_SETTINGS = {
-    "Numbers (counting taps)": {"stability": 0.6, "style": 0.2},
+    "Numbers (counting taps)": {"speed": 1.0},
 }
 
 Job = namedtuple("Job", "text filename tight settings tone")
