@@ -11,14 +11,21 @@ game — it is verification material, not new work.
 1. A child-proof "Grown-up settings" overlay: level pin, round pacing,
    voice toggle, progress readout, and a protected
    clear-and-start-over.
-2. Adaptive progression that no longer tops out: auto mode reaches
-   levels 6–7 and then mixes review rounds instead of ending.
-3. Progress that survives iOS storage purges (UserDefaults mirror).
-4. A repeatable way to change game code at all: a build step that
+2. Ten levels: the existing seven plus three new round types —
+   `8 · count to 20`, `9 · tap until (missing addend)`,
+   `10 · make ten (number bonds)`.
+3. Adaptive progression that no longer tops out: auto mode climbs all
+   ten levels and then mixes review rounds instead of ending.
+4. Progress that survives iOS storage purges (UserDefaults mirror).
+5. A repeatable way to change game code at all: a build step that
    splices the readable reference source into the shipped bundle.
 
-Out of scope: new voice lines (everything stays within the 108 clips),
-child profiles, any change to round mechanics or art.
+New voice lines ARE in scope: the three new levels need ~45 new clips,
+generated with the existing Kokoro pipeline in the shipped `af_bella`
+voice (VOICE.md, `voicelib.game_lines()`, and the clips move in
+lockstep; `verify_voice.py --strict` stays the gate). Out of scope:
+child profiles, changes to the existing seven rounds' mechanics or
+art.
 
 ## 1. Build pipeline (prerequisite for everything else)
 
@@ -51,7 +58,7 @@ Settings move from React props (design-canvas harness) to
 localStorage, with props kept as defaults for canvas preview:
 
 - Key `tap-count-settings`, JSON `{level, pace, voice}`:
-  `level`: `"auto"` or `1`–`7`; `pace`: `"natural"` | `"quick"`;
+  `level`: `"auto"` or `1`–`10`; `pace`: `"natural"` | `"quick"`;
   `voice`: boolean.
 - Defaults when key absent: `level "auto"`, `pace "natural"` (14s
   free-play before a round auto-starts — the shipped default changes
@@ -88,7 +95,8 @@ Baloo 2, control order, "Done"), with these clarifications:
 - Level dropdown options exactly: `auto (adaptive)`, `1 · count to 5`,
   `2 · count to 10`, `3 · add within 6`, `4 · add within 10`,
   `5 · take away (subtraction)`, `6 · pearl groups (multiplication)`,
-  `7 · share the treats (division)`.
+  `7 · share the treats (division)`, `8 · count to 20`,
+  `9 · tap until (missing addend)`, `10 · make ten (number bonds)`.
 - Pacing dropdown: `Natural (rounds start after 14s)` / `Quick (5s)`.
 - Voice checkbox labeled "Voice" (accent #F4711F), checked by default.
 - Progress readout: "Progress: level {lvl} · {n} treasures collected"
@@ -125,21 +133,59 @@ and a mastered kid replays subtraction forever.
 
 New behavior (auto mode only; pins behave as today):
 
-- Remove the clamp: auto follows stored `lvl` across 1–7.
+- Remove the clamp: auto follows stored `lvl` across 1–10.
 - **Review mix once she's in the top levels:** when stored `lvl` ≥ 6,
   each auto round is a coin flip — 50% a round of the current level's
   type, 50% a review round whose type is sampled uniformly from
   levels 1 to `lvl − 1`.
-- **Mastery mode:** once `lvl` = 7 and streak reaches +2 (the level-up
-  that has nowhere to go), the streak stays pinned there and every
-  auto round samples uniformly from all seven level types. The tank
-  never "ends".
+- **Mastery mode:** once `lvl` = 10 and streak reaches +2 (the
+  level-up that has nowhere to go), the streak stays pinned there and
+  every auto round samples uniformly from all ten level types. The
+  tank never "ends".
 - Review and mastery rounds never write `tap-count-progress` —
   only rounds of the current level's type move the streak, so a
   wobbly moment on an old skill can't demote her.
 
-No new voice lines: every round type already has its full line set in
-the shipped 108 clips.
+## 6a. New levels 8–10
+
+All three follow the established round grammar (invite → count →
+celebrate → treasure) and reuse the existing prompt-strip, hint, and
+assist machinery. Line templates below use the game's `slug()` for
+filenames; exact enumeration lands in VOICE.md and
+`voicelib.game_lines()` together during planning.
+
+**Level 8 · Count to 20.** Identical mechanics to L2 with N drawn
+from 11–20. The formation grows to two arcs so up to 20 fish fit,
+with sprites auto-shrunk (extend the existing auto-shrink rule; cap
+fish width by slot pitch as today). New audio: tight number clips
+`eleven`–`twenty` (10), and count celebrations
+"{word}! {n} orange fish! Hooray!" for 11–20 (10). Opener reuses
+"Can you count the orange fish?".
+
+**Level 9 · Tap until (missing addend).** Target T in 5–9, starting
+group A in 2–(T−2). Invite: group A gathers into the left arc, voice
+plays the existing "Look! {A} orange fish are here." then a new
+second clip "Can you make it {T}? Tap the new fish!" (5 clips, one
+per T). Dimmed "waiting" fish drift at the right margin; tapping one
+swims it into the group and the voice counts the new running total
+(existing number clips). Reaching T triggers the standard addition
+celebration "{T}! {A} and {B} makes {T}! Hooray!" with B = T−A —
+most pairs already exist from the addition levels; the ~6 missing
+pair clips (e.g. 2+6, 3+6, 2+7 and mirrors) are generated. Prompt
+strip: A solid minis plus hollow slots up to T that fill as fish
+arrive. Hint reuses "Can you find another orange fish? Tap it!".
+
+**Level 10 · Make ten (number bonds).** Same tap-until mechanic with
+the target fixed at 10, skinned with the existing clam/pearl art:
+A pearls (A in 3–8) sit open; closed clams wait at the margin, and
+tapping a clam opens it to add a pearl. New audio: "Look! {A}
+pearls." (6), one shared "Tap the clams until we have ten!" (1), and
+celebrations "Ten! {A} and {B} makes ten! Hooray!" for the bonds not
+already covered by the addition clips (~5; 5+5 exists). Counting
+reuses one–ten; hint reuses "Can you tap another pearl?".
+
+New-clip total ≈ 43–45, all af_bella via
+`uv run tools/generate_voice.py batch --voice af_bella --only <new-slugs>`.
 
 ## 7. UserDefaults mirror (shell)
 
@@ -178,11 +224,15 @@ reported, not silently "fixed".
   the iPad simulator (2s hold gate, a full round with voice, mirror
   round-trip: wipe localStorage via a relaunch after simulating a
   purge, confirm treasures come back).
-- `python3 tools/verify_voice.py --strict` must still pass unchanged
-  (no new lines).
-- `voicelib.py`'s `slug()`/`game_lines()` need no changes; if any
-  line text were touched (none should be), VOICE.md and the clips
-  would have to move in lockstep.
+- Voice lockstep: VOICE.md gains sections for the three new levels,
+  `voicelib.game_lines()` is extended to enumerate the new reachable
+  lines (same ranges as §6a), the ~45 new clips are generated with
+  `batch --voice af_bella --only <new-slugs>`, and
+  `python3 tools/verify_voice.py --strict` must pass at the end.
+  Existing clips are not regenerated.
+- New-level rounds get the same browser + simulator verification as
+  the rest: an L8 20-fish round, an L9 tap-until round, and an L10
+  make-ten round played end to end with voice.
 
 ## 10. Docs
 
