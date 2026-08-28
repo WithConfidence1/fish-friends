@@ -284,7 +284,7 @@ class Component extends DCLogic {
 
   // ---------- state machine ----------
   setPhase(p) { this.phase = p; this.pt = 0; }
-  words = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  words = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
 
   slots(n, isAdd, A) {
     const out = [];
@@ -296,10 +296,16 @@ class Component extends DCLogic {
     } else if (n <= 5) {
       const sp = Math.min(0.2, 0.72 / Math.max(1, n - 1));
       for (let i = 0; i < n; i++) out.push({ x: 0.52 + (i - (n - 1) / 2) * sp, y: 0.32 + (i % 2) * 0.09 });
-    } else {
+    } else if (n <= 10) {
       const top = Math.ceil(n / 2);
       [[top, 0.24], [n - top, 0.44]].forEach(([m, y0]) => {
         const sp = Math.min(0.15, 0.7 / Math.max(1, m - 1));
+        for (let i = 0; i < m; i++) out.push({ x: 0.52 + (i - (m - 1) / 2) * sp, y: y0 + (i % 2) * 0.045 });
+      });
+    } else {
+      const top = Math.ceil(n / 3), mid = Math.ceil((n - top) / 2);
+      [[top, 0.2], [mid, 0.35], [n - top - mid, 0.5]].forEach(([m, y0]) => {
+        const sp = Math.min(0.11, 0.7 / Math.max(1, m - 1));
         for (let i = 0; i < m; i++) out.push({ x: 0.52 + (i - (m - 1) / 2) * sp, y: y0 + (i % 2) * 0.045 });
       });
     }
@@ -307,8 +313,16 @@ class Component extends DCLogic {
   }
 
   startRound() {
-    const lvl = this.level();
-    this.roundType = 'count'; this.A = 0; this.B = 0;
+    const stored = Math.max(1, Math.min(10, this.progress().lvl));
+    const pinned = this.settings().level !== 'auto';
+    let lvl = pinned ? this.settings().level : stored;
+    this.isReview = false;
+    if (!pinned && stored >= 6) { // mixed review: mastered levels stay warm
+      const mastered = stored === 10 && this.progress().streak >= 2;
+      if (mastered) { lvl = 1 + Math.floor(Math.random() * 10); this.isReview = lvl !== stored; }
+      else if (Math.random() < 0.5) { lvl = 1 + Math.floor(Math.random() * (stored - 1)); this.isReview = true; }
+    }
+    this.roundType = 'count'; this.A = 0; this.B = 0; this.T = 0;
     if (lvl === 1) this.roundN = 2 + Math.floor(Math.random() * 4);
     else if (lvl === 2) this.roundN = 6 + Math.floor(Math.random() * 5);
     else if (lvl === 5) {
@@ -326,6 +340,19 @@ class Component extends DCLogic {
       this.A = 2 + Math.floor(Math.random() * 2);   // fish to share between
       this.B = 2 + Math.floor(Math.random() * 2);   // treats each
       this.roundN = this.A * this.B;                // total treats
+    } else if (lvl === 8) {
+      this.roundN = 11 + Math.floor(Math.random() * 10); // count to 20
+    } else if (lvl === 9) {
+      this.roundType = 'until';                     // missing addend: make it T
+      this.T = 5 + Math.floor(Math.random() * 5);   // target 5..9
+      this.A = 2 + Math.floor(Math.random() * (this.T - 3)); // 2..T-2 already here
+      this.B = this.T - this.A;                     // new fish she taps in
+      this.roundN = this.T;
+    } else if (lvl === 10) {
+      this.roundType = 'bond';                      // make ten: number bonds
+      this.A = 3 + Math.floor(Math.random() * 6);   // 3..8 pearls to start
+      this.B = 10 - this.A;                         // clams to open
+      this.roundN = 10; this.T = 10;
     } else {
       this.roundType = 'add';
       const hi = lvl === 3 ? 3 : 5, lo = lvl === 3 ? 1 : 2;
@@ -335,9 +362,11 @@ class Component extends DCLogic {
     }
     this.counted = 0; this.assistLvl = 0; this.assistMax = 0; this.lastTapT = this.clock;
     // ensure orange population === roundN
-    this.pearls = null; this.shells = null; this.feedFish = null; this.pellLeft = 0; this.flying = []; this._divDone = false;
-    const want = this.roundType === 'sub' || this.roundType === 'div' ? this.A : this.roundType === 'mul' ? 0 : this.roundN;
-    if (this.roundType !== 'mul') {
+    this.pearls = null; this.shells = null; this.clams = null; this.feedFish = null; this.pellLeft = 0; this.flying = []; this._divDone = false;
+    for (const f of this.fish) { f.num = 0; f.noGlow = false; } // no stale count bubbles or flags from an earlier round
+    const fishless = this.roundType === 'mul' || this.roundType === 'bond';
+    const want = this.roundType === 'sub' || this.roundType === 'div' ? this.A : fishless ? 0 : this.roundN;
+    if (!fishless) {
       const or = this.fish.filter(f => f.color === 'orange');
       for (let i = or.length; i < want; i++) { const f = this.addFish('orange', -0.1, 0.2 + Math.random() * 0.4); f.dir = 1; }
       while (this.fish.filter(f => f.color === 'orange').length > want) { const f = this.fish.find(x => x.color === 'orange'); f.mode = 'leave'; f.color = 'gone'; }
@@ -352,6 +381,11 @@ class Component extends DCLogic {
         for (let j = 0; j < P; j++) this.pearls.push({ type: 'pearl', shell: g, x: sx + (j - (P - 1) / 2) * 0.055, y: 0.58 - (j % 2) * 0.05, num: 0, bounce: 0, wig: 0, seed: Math.random() * 9, w: 56 });
       }
       this.targets = this.pearls;
+    } else if (this.roundType === 'bond') {
+      this.pearls = []; this.clams = [];
+      for (let k = 0; k < this.A; k++) this.pearls.push({ type: 'pearl', x: 0.5 + (k - 4.5) * 0.06, y: 0.56, num: 0, bounce: 0, wig: 0, seed: Math.random() * 9, w: 56 });
+      for (let j = 0; j < this.B; j++) this.clams.push({ img: j % 2 ? 'clam-purple' : 'clam-pink', x: this.B > 1 ? 0.62 + j * (0.28 / (this.B - 1)) : 0.76, y: 0.8 - (j % 2) * 0.04, num: 0, bounce: 0, wig: 0, seed: Math.random() * 9, w: 64 });
+      this.targets = this.clams;
     } else if (this.roundType === 'div') {
       this.feedFish = oranges;
       const D = this.A;
@@ -359,24 +393,31 @@ class Component extends DCLogic {
       this.pellLeft = this.roundN;
       this.targets = oranges;
     } else {
-      const isAdd = this.roundType === 'add', sl = this.slots(want, isAdd, this.A);
+      const isAdd = this.roundType === 'add', isUntil = this.roundType === 'until', sl = this.slots(want, isAdd || isUntil, this.A);
       oranges.forEach((f, i) => {
         f.num = 0; f.dir = 1; f.gx = sl[i].x; f.gy = sl[i].y; f.leaveAt = null; f.mode = 'gather'; f.fed = 0;
+        f.noGlow = isUntil && i < this.A; // until: the fish already here aren't the tap targets
         if (isAdd && i >= this.A) { // group B waits offscreen, swims in later
           f.x = 1.06 + (i - this.A) * 0.07; f.y = 0.22 + Math.random() * 0.3; f.face = f.dir = -1;
           f.mode = 'pregather'; f.gatherAt = this.clock + 2.9;
         }
+        if (isUntil && i >= this.A) { // new fish wait dimmed at the right edge until tapped
+          f.qi = i - this.A;
+          f.x = 0.97 + f.qi * 0.05; f.y = f.wy = 0.25 + f.qi * 0.05; f.face = f.dir = -1;
+          f.mode = 'wait';
+        }
         if (this.roundType === 'sub' && i >= this.roundN) f.leaveAt = this.clock + 4.2; // these swim away once settled
       });
-      this.targets = oranges.slice(0, this.roundN);
+      this.targets = isUntil ? oranges.slice(this.A, this.roundN) : oranges.slice(0, this.roundN);
     }
     this.subGone = false;
     { // fish must fit their spacing on any window shape
-      const xsAll = (this.targets || []).map(t => t.gx).filter(v => v != null).sort((a, b) => a - b);
+      const src = this.roundType === 'until' ? oranges : (this.targets || []);
+      const xsAll = src.map(t => t.gx).filter(v => v != null).sort((a, b) => a - b);
       let mp = 0.2; for (let i = 1; i < xsAll.length; i++) mp = Math.min(mp, (xsAll[i] - xsAll[i - 1]) || 0.2);
       this.slotPitch = Math.max(0.06, mp);
     }
-    for (const f of this.fish) if ((f.color !== 'orange' || this.roundType === 'mul') && f.mode !== 'leave' && f.color !== 'gone') { f.mode = 'back'; f.bx = Math.random() < 0.5 ? 0.06 + Math.random() * 0.12 : 0.82 + Math.random() * 0.12; f.by = 0.55 + Math.random() * 0.25; }
+    for (const f of this.fish) if ((f.color !== 'orange' || fishless) && f.mode !== 'leave' && f.color !== 'gone') { f.mode = 'back'; f.bx = Math.random() < 0.5 ? 0.06 + Math.random() * 0.12 : 0.82 + Math.random() * 0.12; f.by = 0.55 + Math.random() * 0.25; }
     this.turtle.tx = 0.13; this.turtle.ty = 0.64; this.turtle.dir = 1;
     this.setPhase('invite');
     if (this.roundType === 'add') {
@@ -391,21 +432,29 @@ class Component extends DCLogic {
     } else if (this.roundType === 'div') {
       setTimeout(() => this.say(this.words[this.roundN - 1] + ' yummy treats! Can you share them with the ' + this.words[this.A - 1] + ' hungry fish?'), 700);
       setTimeout(() => { if (this.phase === 'invite' || this.phase === 'count') this.say('Tap a fish to give it a treat. Take turns, so it is fair!'); }, 3700);
+    } else if (this.roundType === 'until') {
+      setTimeout(() => this.say('Look! ' + this.words[this.A - 1] + ' orange fish are here.'), 700);
+      setTimeout(() => { if (this.phase === 'invite' || this.phase === 'count') this.say('Can you make it ' + this.words[this.T - 1] + '? Tap the new fish!'); }, 3300);
+    } else if (this.roundType === 'bond') {
+      setTimeout(() => this.say('Look! ' + this.words[this.A - 1] + ' pearls.'), 700);
+      setTimeout(() => { if (this.phase === 'invite' || this.phase === 'count') this.say('Tap the clams until we have ten!'); }, 3300);
     } else setTimeout(() => this.say('Can you count the orange fish?'), 700);
   }
 
   finishRound() {
     this.setPhase('celebrate');
     const nm = this.roundN;
-    if (String(this.props.level || 'auto').startsWith('auto')) { // invisible adaptive ladder
+    if (this.settings().level === 'auto' && !this.isReview) { // invisible adaptive ladder
       const pr = this.progress();
       pr.streak = this.assistMax >= 2 ? Math.min(0, pr.streak) - 1 : Math.max(0, pr.streak) + 1;
-      if (pr.streak >= 2 && pr.lvl < 7) { pr.lvl++; pr.streak = 0; }
+      if (pr.streak >= 2 && pr.lvl < 10) { pr.lvl++; pr.streak = 0; }
+      if (pr.lvl === 10 && pr.streak >= 2) pr.streak = 2; // mastered: hold here
       if (pr.streak <= -2 && pr.lvl > 1) { pr.lvl--; pr.streak = 0; }
       try { localStorage.setItem('tap-count-progress', JSON.stringify(pr)); } catch (e) {}
       this.persist();
     }
-    if (this.roundType === 'add') this.say(this.words[nm - 1] + '! ' + this.words[this.A - 1] + ' and ' + this.words[this.B - 1] + ' makes ' + nm + '! Hooray!');
+    if (this.roundType === 'add' || this.roundType === 'until') this.say(this.words[nm - 1] + '! ' + this.words[this.A - 1] + ' and ' + this.words[this.B - 1] + ' makes ' + nm + '! Hooray!');
+    else if (this.roundType === 'bond') this.say('ten! ' + this.words[this.A - 1] + ' and ' + this.words[this.B - 1] + ' makes 10! Hooray!');
     else if (this.roundType === 'sub') this.say(this.words[nm - 1] + '! ' + this.words[this.A - 1] + ' take away ' + this.words[this.B - 1] + ' makes ' + nm + '! Hooray!');
     else if (this.roundType === 'mul') {
       const G = this.A, P = this.B; // skip-count shell by shell: "two... four... six!"
@@ -494,13 +543,20 @@ class Component extends DCLogic {
         if (best.num) { best.bounce = 1; this.blip(600, 900, 0.12, 0.1); this.say(this.words[best.num - 1]); this.lastTapT = this.clock; return; }
         if (this.clock - (this._lastCount || -9) < 0.3) return; // one tap = one count
         this._lastCount = this.clock;
-        this.counted++; best.num = this.counted; best.bounce = 1;
+        const runTotal = this.roundType === 'until' || this.roundType === 'bond'; // count on from A
+        this.counted++; best.num = runTotal ? this.A + this.counted : this.counted; best.bounce = 1;
         this.lastTapT = this.clock; this.assistLvl = 0;
+        if (this.roundType === 'until') { // the tapped fish joins the school; the queue moves up
+          best.mode = 'gather';
+          for (const q of this.targets) if (q.mode === 'wait' && q.qi > best.qi) q.qi--;
+        }
+        if (this.roundType === 'bond') // the clam opens: a new pearl joins the row
+          this.pearls.push({ type: 'pearl', x: 0.5 + (this.A + this.counted - 1 - 4.5) * 0.06, y: 0.56, num: 0, bounce: 1, wig: 0, seed: Math.random() * 9, w: 56 });
         this.bubblesAt(best.x, best.y - 0.04, 4);
         this.burst(best.x, best.y, 3);
         this.blip(440 + this.counted * 80, 660 + this.counted * 80, 0.18, 0.14, 'triangle');
-        this.say(this.words[this.counted - 1], { rate: 0.9 });
-        if (this.counted >= this.roundN) setTimeout(() => this.finishRound(), 800);
+        this.say(this.words[best.num - 1], { rate: 0.9 });
+        if (this.counted >= (runTotal ? this.B : this.roundN)) setTimeout(() => this.finishRound(), 800);
         return;
       }
       // tapping a non-orange fish: playful shy dart, no penalty
@@ -531,13 +587,13 @@ class Component extends DCLogic {
 
     if (this.phase === 'free' && this.settingsOpen) this.pt = 0;
     if (this.phase === 'free' && this.pt > this.freeDur()) this.startRound();
-    if (this.phase === 'invite' && this.pt > ({ add: 5.6, sub: 7.4, mul: 5.8, div: 6.2 }[this.roundType] || 2.6)) { this.setPhase('count'); this.lastTapT = this.clock; }
+    if (this.phase === 'invite' && this.pt > ({ add: 5.6, sub: 7.4, mul: 5.8, div: 6.2, until: 5.6, bond: 5.2 }[this.roundType] || 2.6)) { this.setPhase('count'); this.lastTapT = this.clock; }
     if (this.phase === 'count') {
       const idle = this.clock - this.lastTapT;
       const next = this.roundType === 'div' ? (this.feedFish || []).slice().sort((a, b) => a.fed - b.fed)[0] : this.targets.find(x => !x.num);
       if (next) {
         if (idle > 5 && this.assistLvl === 0) { this.assistLvl = 1; this.assistMax = Math.max(this.assistMax || 0, 1); next.wig = 1; this.bubblesAt(next.x, next.y - 0.03, 3); }
-        if (idle > 12 && this.assistLvl === 1) { this.assistLvl = 2; this.assistMax = 2; this.say(this.roundType === 'mul' ? 'Can you tap another pearl?' : this.roundType === 'div' ? 'Tap a fish to give it a treat!' : 'Can you find another orange fish? Tap it!'); next.wig = 1; }
+        if (idle > 12 && this.assistLvl === 1) { this.assistLvl = 2; this.assistMax = 2; this.say(this.roundType === 'mul' || this.roundType === 'bond' ? 'Can you tap another pearl?' : this.roundType === 'div' ? 'Tap a fish to give it a treat!' : 'Can you find another orange fish? Tap it!'); next.wig = 1; }
         if (idle > 20 && this.assistLvl === 2) { this.assistLvl = 1; this.lastTapT = this.clock - 4; }
       }
     }
@@ -571,7 +627,7 @@ class Component extends DCLogic {
       if (this.pt > 2.6) {
         this.falling = null; this.turtle.tx = 0.1; this.turtle.ty = 0.68; this.turtle.dir = 1;
         for (const f of this.fish) if (f.mode !== 'leave') { f.mode = 'swim'; f.num = 0; f.loop = null; }
-        this.pearls = null; this.shells = null; this.feedFish = null; this.flying = [];
+        this.pearls = null; this.shells = null; this.clams = null; this.feedFish = null; this.flying = [];
         this.setPhase('free');
       }
     }
@@ -600,6 +656,11 @@ class Component extends DCLogic {
       } else if (f.mode === 'pregather') {
         f.x += Math.sin(f.ph * 0.6) * 0.0006;
         if (this.clock >= f.gatherAt) { f.mode = 'gather'; f.dir = 1; }
+      } else if (f.mode === 'wait') { // dimmed at the right edge, bobbing, queue moves up as fish are tapped
+        const qx = 0.97 + f.qi * 0.05, qy = 0.25 + f.qi * 0.05;
+        f.x += (qx - f.x) * Math.min(1, dt * 1.4);
+        f.y += (qy + Math.sin(this.clock * 1.4 + f.ph) * 0.012 - f.y) * Math.min(1, dt * 2);
+        f.dir = -1;
       } else if (f.mode === 'back') {
         f.x += (f.bx - f.x) * Math.min(1, dt * 0.9) * beat; f.y += (f.by - f.y) * Math.min(1, dt * 0.9) * beat;
         if (f.shy > 0) f.x += (f.x > 0.5 ? 1 : -1) * dt * 0.12;
@@ -611,6 +672,7 @@ class Component extends DCLogic {
 
     // pearls + flying treats
     if (this.pearls) for (const p2 of this.pearls) { p2.bounce = Math.max(0, p2.bounce - dt * 1.6); p2.wig = Math.max(0, p2.wig - dt * 1.2); }
+    if (this.clams) for (const c2 of this.clams) { c2.bounce = Math.max(0, c2.bounce - dt * 1.6); c2.wig = Math.max(0, c2.wig - dt * 1.2); }
     if (this.flying && this.flying.length) {
       for (const fl of this.flying) {
         fl.t += dt * 1.8;
@@ -680,9 +742,10 @@ class Component extends DCLogic {
     const sandY = sandU * H;
     const dimOthers = this.phase === 'invite' || this.phase === 'count';
     // back fish (non-orange during challenge draw behind sand deco)
+    const fishless = this.roundType === 'mul' || this.roundType === 'bond';
     for (const f of this.fish) {
-      if ((dimOthers || this.phase === 'celebrate') && f.color === 'orange' && this.roundType !== 'mul') continue;
-      this.drawFish(ctx, f, fsc, dimOthers && (f.color !== 'orange' || this.roundType === 'mul') ? 0.45 : 1);
+      if ((dimOthers || this.phase === 'celebrate') && f.color === 'orange' && !fishless) continue;
+      this.drawFish(ctx, f, fsc, dimOthers && (f.color !== 'orange' || fishless) ? 0.45 : 1);
     }
     // sand
     ctx.fillStyle = '#F2DC96';
@@ -720,7 +783,7 @@ class Component extends DCLogic {
       this.drawImgC(ctx, im.turtle, tu.x * W, (tu.y + Math.sin(tu.bob * 1.6) * 0.012) * H, tw * (1 + Math.sin(tu.bob * 3.2) * (paddling ? 0.02 : 0.008)), tu.dir > 0, Math.sin(tu.bob * 1.6 + 1) * 0.07);
     }
     // target fish on top
-    if ((dimOthers || this.phase === 'celebrate') && this.roundType !== 'mul') for (const f of this.fish) if (f.color === 'orange') this.drawFish(ctx, f, fsc, 1, f.mode === 'gather' || f.mode === 'pregather');
+    if ((dimOthers || this.phase === 'celebrate') && !fishless) for (const f of this.fish) if (f.color === 'orange') this.drawFish(ctx, f, fsc, f.mode === 'wait' ? 0.45 : 1, f.mode === 'gather' || f.mode === 'pregather');
     this.drawMulDiv(ctx, sandY, fsc);
     if ((this.phase === 'invite' || this.phase === 'count') && this.roundType !== 'div') this.drawPrompt(ctx, fsc); // prompt strip on top, near the surface
     // assist ring
@@ -757,8 +820,26 @@ class Component extends DCLogic {
 
   drawMulDiv(ctx, sandY, fsc) {
     const im = this.im, W = this.W, H = this.H;
-    if (this.shells) {
-      for (const s of this.shells) this.drawImgC(ctx, im.shell, s.x * W, sandY - 16 * fsc, 88 * fsc);
+    if (this.shells) for (const s of this.shells) this.drawImgC(ctx, im.shell, s.x * W, sandY - 16 * fsc, 88 * fsc);
+    if (this.clams) for (const c of this.clams) { // make-ten: closed clams wait on the sand
+      const bo = c.bounce > 0 ? -Math.sin((1 - Math.min(1, c.bounce)) * Math.PI) * 20 * fsc : 0;
+      const wob = Math.sin(this.clock * 12) * 4 * c.wig;
+      const cx = c.x * W + wob, cy = c.y * H + Math.sin(this.clock * 1.6 + c.seed) * 2 + bo;
+      ctx.save();
+      if (c.num) { ctx.shadowColor = 'rgba(255,214,79,0.95)'; ctx.shadowBlur = 18; }
+      this.drawImgC(ctx, im[c.img], cx, cy, (c.w || 64) * fsc);
+      ctx.restore();
+      if (c.num) {
+        const r = 15 * fsc, ny = cy - 44 * fsc;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.strokeStyle = '#FF8A3C'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(cx, ny, r, 0, 7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#F4711F'; ctx.font = '800 ' + Math.round(r * (c.num > 9 ? 1.0 : 1.3)) + 'px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(c.num), cx, ny + r * 0.08);
+        ctx.restore();
+      }
+    }
+    if (this.pearls) {
       for (const p of this.pearls) {
         const bo = p.bounce > 0 ? -Math.sin((1 - Math.min(1, p.bounce)) * Math.PI) * 22 * fsc : 0;
         const wob = Math.sin(this.clock * 12) * 4 * p.wig;
@@ -809,7 +890,7 @@ class Component extends DCLogic {
     sx *= 2 - sy; // preserve volume through squash/stretch
     const rot = loopRot + wigR + swimRot;
     ctx.save(); ctx.globalAlpha = alpha;
-    if (isTarget && !f.num) { ctx.shadowColor = 'rgba(255,255,255,0.9)'; ctx.shadowBlur = 14; }
+    if (isTarget && !f.num && !f.noGlow) { ctx.shadowColor = 'rgba(255,255,255,0.9)'; ctx.shadowBlur = 14; }
     if (f.num) { ctx.shadowColor = 'rgba(255,214,79,0.95)'; ctx.shadowBlur = 20; }
     this.drawImgC(ctx, im, f.x * this.W + loopOx, f.y * this.H + hopY + bobY + loopOy, w, false, rot, sy, sx);
     ctx.restore();
@@ -846,6 +927,19 @@ class Component extends DCLogic {
       }
       return;
     }
+    if (this.roundType === 'bond') { // one group of ten pearl dots, filling toward ten
+      const dr = Math.min(13 * fsc, bw * 0.035);
+      const total = 10 * dr * 2.4;
+      for (let k = 0; k < 10; k++) {
+        const px = bx - total / 2 + dr + k * dr * 2.4, py = by - bh * 0.08;
+        ctx.save(); ctx.globalAlpha = k < this.A + this.counted ? 1 : 0.5;
+        const gr = ctx.createRadialGradient(px - dr * 0.3, py - dr * 0.3, dr * 0.2, px, py, dr);
+        gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(1, '#B9C8D8');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(px, py, dr, 0, 7); ctx.fill();
+        ctx.strokeStyle = 'rgba(90,110,130,0.4)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+      }
+      return;
+    }
     if (this.roundType === 'div') { // mini fish, treats fill in beneath each
       const D = this.A, fw2 = Math.min(38, bw * 0.7 / D);
       for (let i = 0; i < D; i++) {
@@ -856,17 +950,17 @@ class Component extends DCLogic {
       }
       return;
     }
-    // mini orange fish inside, filled in as counted; add/sub show two groups with a sign
-    const n = this.roundN, isAdd = this.roundType === 'add', isSub = this.roundType === 'sub', A = this.A;
+    // mini orange fish inside, filled in as counted; add/sub/until show two groups with a sign
+    const n = this.roundN, isAdd = this.roundType === 'add', isSub = this.roundType === 'sub', isUntil = this.roundType === 'until', A = this.A;
     const showN = isSub ? A + this.B : n;      // subtraction reads "A − B": school, then the take-away group
-    const split = isAdd || isSub ? A : -1;     // where the sign sits
+    const split = isAdd || isSub || isUntil ? A : -1; // where the sign sits
     const gap = split > 0 ? Math.min(34 * fsc, bw * 0.09) : 0;
     const fw = Math.min(58 * fsc, (bw * 0.9 - gap) / showN);
     const total = showN * fw + gap, my = by - bh * 0.08;
     const xs = []; for (let i = 0; i < showN; i++) xs.push(bx - total / 2 + fw / 2 + i * fw + (split > 0 && i >= split ? gap : 0));
     if (split > 0 && split < showN) {
       ctx.save(); ctx.fillStyle = '#F4711F'; ctx.font = '800 ' + Math.round(fw * 0.9) + 'px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(isAdd ? '+' : '\u2212', (xs[split - 1] + xs[split]) / 2, my); ctx.restore();
+      ctx.fillText(isSub ? '\u2212' : '+', (xs[split - 1] + xs[split]) / 2, my); ctx.restore();
     }
     for (let i = 0; i < showN; i++) {
       let a;
@@ -874,11 +968,13 @@ class Component extends DCLogic {
         const inMinus = i >= A;                        // the "take away" group after the sign
         const leftSlot = !inMinus && i >= A - this.B;  // school members who swim off
         a = inMinus ? (this.subGone ? 0.95 : 0.3) : leftSlot && this.subGone ? 0.28 : i < this.counted ? 1 : 0.85;
-      } else a = i < this.counted ? 1 : 0.5;
+      } else if (isUntil) a = i < A ? 1 : (i - A) < this.counted ? 1 : 0.35;
+      else a = i < this.counted ? 1 : 0.5;
       ctx.save(); ctx.globalAlpha = a;
       this.drawImgC(ctx, im['fish-orange'], xs[i], my, fw * 0.9, true);
       ctx.restore();
-      if (i < this.counted && (!isSub || i < A - this.B)) {
+      const showNum = isUntil ? i >= A && (i - A) < this.counted : i < this.counted && (!isSub || i < A - this.B);
+      if (showNum) { // until: running totals appear over the new arrivals (A+1 ... T)
         ctx.save(); ctx.fillStyle = '#F4711F'; ctx.font = '800 ' + Math.round(fw * 0.42) + 'px "Baloo 2", sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(String(i + 1), xs[i], my - fw * 0.5); ctx.restore();
       }
