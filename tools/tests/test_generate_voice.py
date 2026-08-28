@@ -1,7 +1,8 @@
 import unittest
 from pathlib import Path
 
-from tools.generate_voice import plan_jobs, SECTION_SETTINGS, DEFAULT_SETTINGS
+from tools.generate_voice import (plan_jobs, SECTION_SETTINGS, DEFAULT_SETTINGS,
+                                  AUDITION_VOICES, MODEL_FILES)
 
 VOICE_MD = Path(__file__).resolve().parents[2] / "docs" / "VOICE.md"
 
@@ -35,6 +36,29 @@ class TestPlanJobs(unittest.TestCase):
         sections = {r.section for r in parse_voice_md(VOICE_MD)}
         for key in SECTION_SETTINGS:
             self.assertIn(key, sections)
+
+    def test_no_elevenlabs_remnants(self):
+        import inspect
+        import tools.generate_voice as gv
+        src = inspect.getsource(gv)
+        self.assertNotIn("elevenlabs", src.lower())
+        self.assertNotIn("api-key", src.lower())
+
+    def test_audition_voices_are_kokoro_names(self):
+        for name in AUDITION_VOICES:
+            self.assertRegex(name, r"^[ab]f_[a-z]+$")
+
+    def test_module_imports_without_kokoro_installed(self):
+        # The suite itself runs under system Python with no kokoro-onnx;
+        # reaching this line proves the import at the top of the file
+        # (and via the other tests) did not pull in the model runtime.
+        import sys
+        self.assertNotIn("kokoro_onnx", sys.modules)
+
+    def test_model_files_are_versioned_pair(self):
+        self.assertEqual(len(MODEL_FILES), 2)
+        self.assertTrue(MODEL_FILES[0].endswith(".onnx"))
+        self.assertTrue(MODEL_FILES[1].endswith(".bin"))
 
 
 if __name__ == "__main__":
