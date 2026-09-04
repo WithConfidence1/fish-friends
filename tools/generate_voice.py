@@ -18,6 +18,7 @@ First real run downloads ~340MB of Kokoro model files into tools/models/.
 """
 import argparse
 import io
+import re
 import subprocess
 import sys
 import tempfile
@@ -52,6 +53,26 @@ DEFAULT_SETTINGS = {"speed": 0.95}  # VOICE.md: never sped up
 SECTION_SETTINGS = {
     "Numbers (counting taps)": {"speed": 1.0},
 }
+
+# Words espeak mispronounces, mapped to a spelling Kokoro says right.
+# "hooray" phonemizes to hˈɔːɹeɪ (HAW-ray, which Dylan's dad heard as
+# something else entirely); "hurray" gives hɚɹˈeɪ, which Taylor picked
+# by ear over "who-ray" and a phoneme override (2026-09-03). Only the
+# synth text is respelled; VOICE.md, slugs, filenames and the review page
+# keep the real word.
+PRONUNCIATIONS = {"hooray": "hurray"}
+
+
+def spoken(text):
+    """The text handed to the synth: VOICE.md's line with any
+    PRONUNCIATIONS respelled, whole words only, case preserved."""
+    def swap(m):
+        word = m.group(0)
+        fix = PRONUNCIATIONS[word.lower()]
+        return fix.capitalize() if word[0].isupper() else fix
+    pattern = r"\b(" + "|".join(map(re.escape, PRONUNCIATIONS)) + r")\b"
+    return re.sub(pattern, swap, text, flags=re.IGNORECASE)
+
 
 Job = namedtuple("Job", "text filename tight settings tone")
 
@@ -144,14 +165,17 @@ def cmd_batch(args):
     jobs = plan_jobs(only=only)
     if args.dry_run:
         for j in jobs:
+            said = spoken(j.text)
+            note = "" if said == j.text else f"  (said as {said!r})"
             print(f"would synth [{'tight' if j.tight else 'padded'}] "
-                  f"{j.filename}: {j.text!r}")
+                  f"{j.filename}: {j.text!r}{note}")
         print(f"{len(jobs)} clips planned")
         return
     voice = resolve_voice(args.voice)
     VOICE_DIR.mkdir(parents=True, exist_ok=True)
     for i, j in enumerate(jobs, 1):
-        postprocess(synth(j.text, voice, j.settings), VOICE_DIR / j.filename, j.tight)
+        postprocess(synth(spoken(j.text), voice, j.settings),
+                    VOICE_DIR / j.filename, j.tight)
         print(f"[{i}/{len(jobs)}] {j.filename}")
     code, report = check(VOICE_DIR, VOICE_MD, strict=only is None)
     print(report)

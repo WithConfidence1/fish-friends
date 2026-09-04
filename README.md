@@ -33,7 +33,13 @@ redo just that one:
 
 This writes only the named MP3s into `web/assets/voice/`,
 post-processes them with ffmpeg (numbers tight, sentences padded
-0.2s), and runs the strict verifier. Review the result in
+0.2s), and runs the strict verifier.
+
+Pronunciation fixes live in `PRONUNCIATIONS` in `tools/generate_voice.py`.
+The phonemizer reads "hooray" as HAW-ray, so the synth is handed
+"who-ray" (hoo-RAY) instead; VOICE.md, slugs and filenames keep the real
+word. Add an entry there, regenerate the affected slugs with `--only`,
+and listen before rebuilding. `--dry-run` shows any respelled lines. Review the result in
 `tools/review.html` (open it in a browser). Rebuild the app afterward
 so the clip ships inside it.
 
