@@ -72,6 +72,15 @@ The game never substitutes a robot or fallback voice: any voice line
 missing from `web/assets/voice/` is simply skipped, so she stays
 silent for that one line.
 
+## Share it with another family
+
+The game is also published as a web page at
+<https://withconfidence1.github.io/fish-friends/> (GitHub Pages, from
+`.github/workflows/pages.yml`, on every push to main that touches
+`web/`). On an iPad: open that link in Safari, tap Share, then **Add to
+Home Screen**. It runs full screen like the app, with the voice, and
+treasures are saved on that iPad. No Mac, Xcode, or signing needed.
+
 ## Install on the iPad
 
 1. Open `app/FishFriends.xcodeproj` in Xcode.
